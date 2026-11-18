@@ -1,15 +1,14 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { SCENE_CONFIG as INITIAL_CONFIG } from "./scene-config.js";
-import { SCENE_CONFIG as V2_PRESET } from "./snapshots/v2-sunset-fireflies.js";
+import { SCENE_CONFIG as V1_PRESET } from "./snapshots/v1-daylight.js";
+
+const { SCENE_CONFIG: INITIAL_CONFIG } = await import(`./scene-config.js?t=${Date.now()}`);
 
 const wrap = document.getElementById("canvas-wrap");
 const badgeEl = document.getElementById("mode-badge");
 const hudEl = document.getElementById("hud");
 const btnV1 = document.getElementById("btn-v1");
 const btnV2 = document.getElementById("btn-v2");
-
-const V1_PRESET = structuredClone(INITIAL_CONFIG);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -563,11 +562,15 @@ applySceneConfig(activeConfig);
 
 // Manual preview buttons & keyboard shortcuts
 btnV1.addEventListener("click", () => applySceneConfig(V1_PRESET));
-btnV2.addEventListener("click", () => applySceneConfig(V2_PRESET));
+btnV2.addEventListener("click", async () => {
+  if (btnV2.hidden) return;
+  const { SCENE_CONFIG } = await import("./snapshots/v2-sunset-fireflies.js");
+  applySceneConfig(SCENE_CONFIG);
+});
 window.addEventListener("keydown", (e) => {
   if (e.key === "h" || e.key === "H") hudEl.classList.toggle("is-hidden");
   if (e.key === "1") applySceneConfig(V1_PRESET);
-  if (e.key === "2") applySceneConfig(V2_PRESET);
+  if (e.key === "2") btnV2.click();
 });
 
 // Auto-poll scene-config.js so Codex CLI edits hot-update even under python3 -m http.server!
