@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3.5 经验分享 · 演示与素材总控台</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f5f4ed;
+      color: #1c1917;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+      padding: 40px 28px 64px;
+      line-height: 1.6;
+    }
+    .wrap {
+      max-width: 1040px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    header p {
+      color: #57534e;
+      font-size: 15px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e7e5e4;
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 4px 16px rgba(28, 25, 23, 0.04);
+    }
+    .tag {
+      display: inline-block;
+      align-self: flex-start;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .card h2 { font-size: 18px; }
+    .card p { font-size: 14px; color: #57534e; flex: 1; }
+    .links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .links a {
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 9px;
+      background: #1c1917;
+      color: #fafaf9;
+    }
+    .links a.secondary {
+      background: #f5f5f4;
+      color: #1c1917;
+      border: 1px solid #d6d3d1;
+    }
+    .shots {
+      background: #ffffff;
+      border: 1px solid #e7e5e4;
+      border-radius: 16px;
+      padding: 22px;
+    }
+    .shots h2 { font-size: 18px; margin-bottom: 12px; }
+    .shot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .shot-item {
+      border: 1px solid #e7e5e4;
+      border-radius: 12px;
+      padding: 10px;
+      background: #fafaf9;
+    }
+    .shot-item img {
+      width: 100%;
+      border-radius: 8px;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .shot-item span {
+      font-size: 12px;
+      color: #57534e;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>第 3 章 3.5 · 走出网页：演示小项目与外部截图总控台</h1>
+      <p>在 <code>ch03-explore/</code> 目录下运行 <code>python3 -m http.server 8350</code> 后打开本页，即可一键进入全部录屏演示与截图预览。</p>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <span class="tag">第二幕 · 演示 2A（视觉秀）</span>
+        <h2>漂浮灯塔海岛（Three.js）</h2>
+        <p>默认白昼塑料感起点；用 Codex CLI 修改 <code>scene-config.js</code> 后页面自动热更新为黄昏逆光、海面金色波光与漫天萤火虫（按 H 可隐藏面板）。</p>
+        <div class="links">
+          <a href="./01-lighthouse-island/index.html" target="_blank">打开 3D 海岛演示 ↗</a>
+          <a class="secondary" href="./01-lighthouse-island/PROMPT.md" target="_blank">查看提示词</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <span class="tag">第二幕 · 演示 2B（听觉秀）</span>
+        <h2>Strudel 浏览器电音打碟</h2>
+        <p>已备好两轮实测代码：第一轮 8-bit 复古街机鼓点（带 <code>._punchcard()</code> 闪烁色块），第二轮最后 10 秒加速扫频冲刺变奏。</p>
+        <div class="links">
+          <a href="https://strudel.cc/" target="_blank" rel="noopener">打开 strudel.cc ↗</a>
+          <a class="secondary" href="./02-strudel-beats/round1-arcade-groove.strudel.js" target="_blank">第一轮代码</a>
+          <a class="secondary" href="./02-strudel-beats/round2-final10s-rush.strudel.js" target="_blank">第二轮冲刺代码</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <span class="tag">第三幕 · 演示 3A（触感怪玩具）</span>
+        <h2>果冻水母风铃</h2>
+        <p>弹簧质点柔性荧光水母网格 ＋ Web Audio API 五声音阶玻璃风铃合成器，支持深海荧光、蜜桃软糖、极光水晶三档切换。</p>
+        <div class="links">
+          <a href="./03-jelly-chime/index.html" target="_blank">打开果冻水母风铃 ↗</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <span class="tag">第三幕 · 演示 3B（一次性工具）</span>
+        <h2>全员睁眼合照合成器</h2>
+        <p>内置 3 张像素级对齐的卡通聚会闭眼/打喷嚏连拍废片，支持文件拖入、一键扫描拼成全员睁眼照、按住对比原废片及单人表情切换。</p>
+        <div class="links">
+          <a href="./04-all-eyes-open/index.html" target="_blank">打开合照合成器 ↗</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="shots">
+      <h2>第一幕 & 第四幕：外部原帖与站点截图预览（<code>external-posts/</code>）</h2>
+      <div class="shot-grid">
+        <div class="shot-item">
+          <img src="./external-posts/karpathy-vibe-coding-cropped.png" alt="Karpathy Vibe Coding 原帖" />
+          <span><b>p01</b> · Karpathy 造词原帖（2025-02-03）</span>
+        </div>
+        <div class="shot-item">
+          <img src="./external-posts/levelsio-fly-pieter-post.png" alt="Pieter Levels 飞行游戏原帖" />
+          <span><b>切屏 1 佐证</b> · Pieter Levels 飞行游戏出圈帖</span>
+        </div>
+        <div class="shot-item">
+          <img src="./external-posts/jasonlk-code-freeze-deleted-cropped.png" alt="Jason Lemkin 删库问答" />
+          <span><b>p04</b> · 代码冻结期间擅自删光整个数据库</span>
+        </div>
+        <div class="shot-item">
+          <img src="./external-posts/jasonlk-replit-confession-cropped.png" alt="AI 忏悔原帖" />
+          <span><b>p05</b> · AI 忏悔（panicked / catastrophic error）</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

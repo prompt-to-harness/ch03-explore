@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>全员睁眼合照合成器 · 一次性个人小工具</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 22px 28px;
+      gap: 18px;
+    }
+    header {
+      width: 100%;
+      max-width: 1180px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      min-width: 0;
+    }
+    .brand h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .brand span {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    button {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      color: #f8fafc;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 15px;
+      border-radius: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.16s ease;
+    }
+    button:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.16);
+      transform: translateY(-1px);
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+      border-color: rgba(251, 191, 36, 0.6);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(239, 68, 68, 0.32);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #fbbf24, #f87171);
+    }
+    .workspace {
+      width: 100%;
+      max-width: 1180px;
+      display: grid;
+      grid-template-columns: 270px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .thumbs {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: rgba(30, 41, 59, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 14px;
+    }
+    .thumbs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+    .thumb-card {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid transparent;
+      background: rgba(15, 23, 42, 0.75);
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+    .thumb-card:hover { border-color: rgba(148, 163, 184, 0.45); }
+    .thumb-card.active {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+    .thumb-card img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+    }
+    .thumb-meta {
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+    .pill-bad {
+      color: #fecdd3;
+      background: rgba(244, 63, 94, 0.24);
+      border: 1px solid rgba(244, 63, 94, 0.45);
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .stage-panel {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #090d16;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      aspect-ratio: 1376 / 768;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .drop-overlay {
+      position: absolute;
+      inset: 16px;
+      border: 2px dashed rgba(148, 163, 184, 0.4);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.86);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 5;
+      transition: all 0.2s ease;
+    }
+    .drop-overlay.dragover {
+      border-color: #38bdf8;
+      background: rgba(14, 116, 144, 0.35);
+    }
+    .drop-overlay.hidden { display: none; }
+    .drop-overlay h2 { font-size: 18px; font-weight: 600; }
+    .drop-overlay p { font-size: 13px; color: #94a3b8; }
+
+    .face-boxes {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .face-box {
+      position: absolute;
+      border-radius: 14px;
+      border: 2px dashed rgba(244, 63, 94, 0.88);
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.28);
+      pointer-events: auto;
+      cursor: pointer;
+      transition: all 0.22s ease;
+    }
+    .face-box:hover { transform: scale(1.02); }
+    .face-box.is-open {
+      border-style: solid;
+      border-color: rgba(52, 211, 153, 0.92);
+    }
+    .face-tag {
+      position: absolute;
+      left: 50%;
+      bottom: -28px;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(225, 29, 72, 0.92);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    }
+    .face-box.is-open .face-tag {
+      background: rgba(5, 150, 105, 0.94);
+    }
+    .scanline {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 6px;
+      background: linear-gradient(90deg, transparent, #38bdf8, #fde047, transparent);
+      box-shadow: 0 0 28px 8px rgba(56, 189, 248, 0.65);
+      transform: translateX(-20px);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .scanline.running {
+      opacity: 1;
+      transition: transform 0.68s cubic-bezier(0.22, 1, 0.36, 1);
+      transform: translateX(920px);
+    }
+    .status-bar {
+      width: 100%;
+      max-width: 1180px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: #cbd5e1;
+      padding: 0 4px;
+    }
+    .status-ok { color: #6ee7b7; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>全员睁眼合照合成器</h1>
+      <span>聚会连拍总有人闭眼？把几张废片的睁眼瞬间拼成一张完美合照（点击任意人脸也可手动切换来源）</span>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-load">载入 3 张聚会连拍废片</button>
+      <button type="button" id="btn-merge" class="btn-primary" disabled>✨ 一键拼出全员睁眼照</button>
+      <button type="button" id="btn-hold" disabled>按住对比原废片</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="thumbs" id="thumbs">
+      <div class="thumbs-header">
+        <span>连拍输入（3 张）</span>
+        <span id="LoadedHint" style="color:#64748b;font-weight:400;">待载入</span>
+      </div>
+      <p style="font-size:12px;color:#94a3b8;line-height:1.5;" id="empty-side">
+        可将 <code>assets/shot-1.jpg ~ shot-3.jpg</code> 直接拖进右侧画布，或点击右上角按钮一键载入。
+      </p>
+    </aside>
+
+    <section class="stage-panel" id="drop-zone">
+      <canvas id="canvas" width="1376" height="768"></canvas>
+      <div class="face-boxes" id="face-boxes"></div>
+      <div class="scanline" id="scanline"></div>
+
+      <div class="drop-overlay" id="drop-overlay">
+        <h2>把连拍废片拖到这里</h2>
+        <p>支持一次拖入 3 张连拍图，或直接点击下方按钮载入内置聚会三连拍</p>
+        <button type="button" class="btn-primary" id="btn-load-center">📂 载入刚拍崩的 3 张聚会连拍</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="status-bar">
+    <span id="status-text">等待载入连拍照片…</span>
+    <span>提示：合成后点击画面中任意角色框，可在 3 张连拍的表情之间自由切换</span>
+  </footer>
+
+  <script>
+    const W = 1376;
+    const H = 768;
+
+    // 4 characters' head ellipses & per-shot eye state
+    const PEOPLE = [
+      {
+        name: "阿哲",
+        cx: 256, cy: 286, rx: 134, ry: 152,
+        box: { left: 10.2, top: 18.5, width: 17.2, height: 37.5 },
+        states: [
+          { open: false, text: "打哈欠闭眼" },
+          { open: true,  text: "睁眼微笑" },
+          { open: false, text: "打哈欠闭眼" },
+        ],
+        bestShot: 1,
+      },
+      {
+        name: "小夏",
+        cx: 558, cy: 316, rx: 138, ry: 148,
+        box: { left: 31.8, top: 22.5, width: 17.4, height: 35.5 },
+        states: [
+          { open: true,  text: "睁眼微笑" },
+          { open: false, text: "打喷嚏闭眼" },
+          { open: false, text: "打喷嚏闭眼" },
+        ],
+        bestShot: 0,
+      },
+      {
+        name: "老凯",
+        cx: 862, cy: 292, rx: 138, ry: 156,
+        box: { left: 54.0, top: 19.0, width: 17.4, height: 37.5 },
+        states: [
+          { open: false, text: "犯困闭眼" },
+          { open: true,  text: "睁眼灿笑" },
+          { open: false, text: "犯困闭眼" },
+        ],
+        bestShot: 1,
+      },
+      {
+        name: "丸子",
+        cx: 1172, cy: 316, rx: 146, ry: 152,
+        box: { left: 75.8, top: 21.5, width: 18.2, height: 36.5 },
+        states: [
+          { open: true,  text: "睁眼微笑" },
+          { open: false, text: "表情失控闭眼" },
+          { open: true,  text: "唯一睁眼" },
+        ],
+        bestShot: 0,
+      },
+    ];
+
+    const SHOT_META = [
+      { title: "连拍 #1", badge: "2 人闭眼 ❌", defaultSrc: "./assets/shot-1.jpg" },
+      { title: "连拍 #2", badge: "2 人闭眼 ❌", defaultSrc: "./assets/shot-2.jpg" },
+      { title: "连拍 #3", badge: "3 人闭眼 ❌", defaultSrc: "./assets/shot-3.jpg" },
+    ];
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const thumbsEl = document.getElementById("thumbs");
+    const faceBoxesEl = document.getElementById("face-boxes");
+    const overlayEl = document.getElementById("drop-overlay");
+    const statusEl = document.getElementById("status-text");
+    const scanlineEl = document.getElementById("scanline");
+    const btnLoad = document.getElementById("btn-load");
+    const btnLoadCenter = document.getElementById("btn-load-center");
+    const btnMerge = document.getElementById("btn-merge");
+    const btnHold = document.getElementById("btn-hold");
+
+    let shotImages = [];
+    let shotCanvases = [];
+    let baseShotIdx = 0;
+    // Per-person selected source shot index
+    let personSource = [0, 0, 0, 0];
+    let isMerged = false;
+
+    // Subtle Web Audio chime feedback
+    let audioCtx = null;
+    function playPop(freqs) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!audioCtx) audioCtx = new AC();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        const now = audioCtx.currentTime;
+        freqs.forEach((f, idx) => {
+          const osc = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(f, now + idx * 0.065);
+          g.gain.setValueAtTime(0.0001, now + idx * 0.065);
+          g.gain.exponentialRampToValueAtTime(0.14, now + idx * 0.065 + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.065 + 0.28);
+          osc.connect(g);
+          g.connect(audioCtx.destination);
+          osc.start(now + idx * 0.065);
+          osc.stop(now + idx * 0.065 + 0.3);
+        });
+      } catch (_) {}
+    }
+
+    function loadImg(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    function buildFeatheredPatch(person, shotIdx) {
+      const srcCanvas = shotCanvases[shotIdx];
+      const pad = 6;
+      const x0 = Math.max(0, Math.floor(person.cx - person.rx - pad));
+      const y0 = Math.max(0, Math.floor(person.cy - person.ry - pad));
+      const pw = Math.min(W - x0, Math.ceil(person.rx * 2 + pad * 2));
+      const ph = Math.min(H - y0, Math.ceil(person.ry * 2 + pad * 2));
+
+      const off = document.createElement("canvas");
+      off.width = pw;
+      off.height = ph;
+      const octx = off.getContext("2d");
+      const srcData = srcCanvas.getContext("2d").getImageData(x0, y0, pw, ph);
+      const d = srcData.data;
+
+      for (let py = 0; py < ph; py++) {
+        const dy = (y0 + py - person.cy) / person.ry;
+        for (let px = 0; px < pw; px++) {
+          const dx = (x0 + px - person.cx) / person.rx;
+          const dist = Math.hypot(dx, dy);
+          let a = 0;
+          if (dist < 1.0) {
+            const t = Math.max(0, Math.min(1, (dist - 0.68) / 0.32));
+            a = 1.0 - t * t * (3 - 2 * t);
+          }
+          d[(py * pw + px) * 4 + 3] = Math.round(a * 255);
+        }
+      }
+      octx.putImageData(srcData, 0, 0);
+      return { canvas: off, x0, y0 };
+    }
+
+    function renderComposite(overrideSingleShot = null) {
+      if (!shotImages.length) return;
+      if (overrideSingleShot !== null) {
+        ctx.drawImage(shotImages[overrideSingleShot], 0, 0, W, H);
+        updateFaceOverlays(overrideSingleShot);
+        return;
+      }
+
+      // Start from baseShotIdx background, then composite each person's chosen shot patch
+      ctx.drawImage(shotImages[baseShotIdx], 0, 0, W, H);
+      PEOPLE.forEach((person, pIdx) => {
+        const chosen = personSource[pIdx];
+        if (chosen !== baseShotIdx) {
+          const patch = buildFeatheredPatch(person, chosen);
+          ctx.drawImage(patch.canvas, patch.x0, patch.y0);
+        }
+      });
+      updateFaceOverlays(null);
+    }
+
+    function updateFaceOverlays(singleShot) {
+      faceBoxesEl.innerHTML = "";
+      let openCount = 0;
+      PEOPLE.forEach((p, idx) => {
+        const shotIdx = singleShot !== null ? singleShot : personSource[idx];
+        const st = p.states[shotIdx];
+        if (st.open) openCount++;
+
+        const box = document.createElement("div");
+        box.className = "face-box" + (st.open ? " is-open" : "");
+        box.style.left = p.box.left + "%";
+        box.style.top = p.box.top + "%";
+        box.style.width = p.box.width + "%";
+        box.style.height = p.box.height + "%";
+
+        const tag = document.createElement("span");
+        tag.className = "face-tag";
+        if (isMerged && singleShot === null && st.open) {
+          tag.textContent = `✅ ${p.name}（取自 #${shotIdx + 1}）`;
+        } else {
+          tag.textContent = `${st.open ? "✅" : "❌"} ${p.name}：${st.text}`;
+        }
+        box.appendChild(tag);
+
+        box.addEventListener("click", () => {
+          personSource[idx] = (personSource[idx] + 1) % 3;
+          isMerged = true;
+          playPop([587.33]);
+          renderComposite();
+        });
+        faceBoxesEl.appendChild(box);
+      });
+
+      if (singleShot !== null) {
+        statusEl.innerHTML = `正在按住预览原废片 <b>连拍 #${singleShot + 1}</b>（仅 ${openCount}/4 人睁眼）`;
+      } else if (openCount === 4) {
+        statusEl.innerHTML = `<span class="status-ok">🎉 合成完成：4/4 人全员睁眼！</span>（阿哲、老凯取自 #2，小夏、丸子取自 #1）`;
+      } else {
+        statusEl.innerHTML = `当前画面：${openCount}/4 人睁眼，还有 <b>${4 - openCount} 人闭眼</b> —— 点击右上角「一键拼出全员睁眼照」拯救废片`;
+      }
+    }
+
+    function buildSidebar() {
+      document.getElementById("LoadedHint").textContent = "已就绪";
+      const oldCards = thumbsEl.querySelectorAll(".thumb-card");
+      oldCards.forEach((c) => c.remove());
+      const emptyP = document.getElementById("empty-side");
+      if (emptyP) emptyP.remove();
+
+      SHOT_META.forEach((m, idx) => {
+        const card = document.createElement("div");
+        card.className = "thumb-card" + (idx === baseShotIdx ? " active" : "");
+        card.innerHTML = `
+          <img src="${shotImages[idx].src}" alt="${m.title}" />
+          <div class="thumb-meta">
+            <strong>${m.title}</strong>
+            <span class="pill-bad">${m.badge}</span>
+          </div>
+        `;
+        card.addEventListener("click", () => {
+          baseShotIdx = idx;
+          personSource = [idx, idx, idx, idx];
+          isMerged = false;
+          thumbsEl.querySelectorAll(".thumb-card").forEach((c, i) => c.classList.toggle("active", i === idx));
+          playPop([440]);
+          renderComposite();
+        });
+        thumbsEl.appendChild(card);
+      });
+    }
+
+    async function loadShotsFromUrls(urls) {
+      const imgs = await Promise.all(urls.map(loadImg));
+      shotImages = imgs;
+      shotCanvases = imgs.map((im) => {
+        const c = document.createElement("canvas");
+        c.width = W;
+        c.height = H;
+        c.getContext("2d").drawImage(im, 0, 0, W, H);
+        return c;
+      });
+      baseShotIdx = 0;
+      personSource = [0, 0, 0, 0];
+      isMerged = false;
+      overlayEl.classList.add("hidden");
+      btnMerge.disabled = false;
+      btnHold.disabled = true;
+      buildSidebar();
+      playPop([440, 554.37]);
+      renderComposite();
+    }
+
+    btnLoad.addEventListener("click", () => loadShotsFromUrls(SHOT_META.map((m) => m.defaultSrc)));
+    btnLoadCenter.addEventListener("click", () => loadShotsFromUrls(SHOT_META.map((m) => m.defaultSrc)));
+
+    btnMerge.addEventListener("click", () => {
+      if (!shotImages.length) return;
+      scanlineEl.classList.remove("running");
+      void scanlineEl.offsetWidth;
+      scanlineEl.classList.add("running");
+      playPop([523.25, 659.25, 783.99, 1046.5]);
+
+      setTimeout(() => {
+        baseShotIdx = 0;
+        personSource = PEOPLE.map((p) => p.bestShot);
+        isMerged = true;
+        btnHold.disabled = false;
+        thumbsEl.querySelectorAll(".thumb-card").forEach((c) => c.classList.remove("active"));
+        renderComposite();
+      }, 280);
+    });
+
+    // Hold to compare with ruined Shot #1
+    btnHold.addEventListener("pointerdown", () => {
+      if (!shotImages.length) return;
+      renderComposite(0);
+    });
+    window.addEventListener("pointerup", () => {
+      if (!shotImages.length || !isMerged) return;
+      renderComposite(null);
+    });
+
+    // Real file drag-and-drop support
+    const dropZone = document.getElementById("drop-zone");
+    window.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      overlayEl.classList.remove("hidden");
+      overlayEl.classList.add("dragover");
+    });
+    window.addEventListener("dragleave", (e) => {
+      if (e.relatedTarget === null) {
+        overlayEl.classList.remove("dragover");
+        if (shotImages.length) overlayEl.classList.add("hidden");
+      }
+    });
+    window.addEventListener("drop", (e) => {
+      e.preventDefault();
+      overlayEl.classList.remove("dragover");
+      const files = Array.from(e.dataTransfer.files)
+        .filter((f) => f.type.startsWith("image/"))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      if (files.length >= 3) {
+        const urls = files.slice(0, 3).map((f) => URL.createObjectURL(f));
+        loadShotsFromUrls(urls);
+      } else {
+        loadShotsFromUrls(SHOT_META.map((m) => m.defaultSrc));
+      }
+    });
+  </script>
+</body>
+</html>

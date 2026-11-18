@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>果冻水母风铃 · 触感解压怪玩具</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #070b19;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+      user-select: none;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    canvas:active { cursor: grabbing; }
+    .topbar {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.62);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f8fafc;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .hint {
+      font-size: 12px;
+      color: rgba(226, 232, 240, 0.72);
+      white-space: nowrap;
+    }
+    .modes {
+      display: flex;
+      gap: 6px;
+    }
+    .modes button {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.07);
+      color: #e2e8f0;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .modes button:hover { background: rgba(255, 255, 255, 0.16); }
+    .modes button.active {
+      background: rgba(255, 255, 255, 0.24);
+      border-color: rgba(255, 255, 255, 0.55);
+      color: #ffffff;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <span class="title">果冻水母风铃</span>
+    <span class="hint">用鼠标轻轻拨动或拖拽网格 · 听玻璃风铃泛音</span>
+    <div class="modes" id="modes">
+      <button type="button" data-theme="ocean" class="active">深海荧光</button>
+      <button type="button" data-theme="peach">蜜桃软糖</button>
+      <button type="button" data-theme="aurora">极光水晶</button>
+    </div>
+  </header>
+  <canvas id="stage"></canvas>
+
+  <script>
+    const canvas = document.getElementById("stage");
+    const ctx = canvas.getContext("2d");
+
+    const THEMES = {
+      ocean: {
+        bgTop: "#060b1d",
+        bgBottom: "#0e1f3d",
+        glowA: [56, 189, 248],
+        glowB: [192, 132, 252],
+        rim: "rgba(186, 230, 253, 0.82)",
+        fillAlpha: 0.17,
+        // Lydian dreamy pentatonic (Hz)
+        notes: [523.25, 587.33, 659.25, 739.99, 783.99, 880.0, 987.77, 1046.5, 1174.66, 1318.51, 1567.98],
+      },
+      peach: {
+        bgTop: "#1f0d1d",
+        bgBottom: "#38162e",
+        glowA: [251, 113, 133],
+        glowB: [253, 186, 116],
+        rim: "rgba(254, 215, 170, 0.88)",
+        fillAlpha: 0.21,
+        notes: [440.0, 493.88, 554.37, 659.25, 739.99, 880.0, 987.77, 1108.73, 1318.51, 1479.98, 1760.0],
+      },
+      aurora: {
+        bgTop: "#05191c",
+        bgBottom: "#0f2e30",
+        glowA: [52, 211, 153],
+        glowB: [129, 140, 248],
+        rim: "rgba(167, 243, 208, 0.86)",
+        fillAlpha: 0.18,
+        notes: [493.88, 587.33, 659.25, 739.99, 880.0, 987.77, 1174.66, 1318.51, 1479.98, 1760.0, 1975.53],
+      },
+    };
+    let theme = THEMES.ocean;
+
+    // --- Web Audio API Polyphonic Glass Wind-Chime Engine ---
+    let audioCtx = null;
+    let delayNode = null;
+    let masterGain = null;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AC();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.55;
+
+        // Soft stereo shimmer echo
+        delayNode = audioCtx.createDelay(1.0);
+        delayNode.delayTime.value = 0.23;
+        const fb = audioCtx.createGain();
+        fb.gain.value = 0.34;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 3400;
+
+        delayNode.connect(filter);
+        filter.connect(fb);
+        fb.connect(delayNode);
+        filter.connect(masterGain);
+        masterGain.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    }
+
+    let lastChimeTime = 0;
+    function playChime(normX, normY, intensity = 0.6) {
+      const nowMs = performance.now();
+      if (nowMs - lastChimeTime < 38) return;
+      lastChimeTime = nowMs;
+      ensureAudio();
+
+      const t = audioCtx.currentTime;
+      const notes = theme.notes;
+      const idx = Math.max(0, Math.min(notes.length - 1, Math.floor((normX * 0.7 + (1 - normY) * 0.3) * notes.length)));
+      const freq = notes[idx];
+      const vol = Math.min(0.28, 0.06 + intensity * 0.2);
+
+      // Primary pure sine bell + glassy 2.76x harmonic overtone
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const g1 = audioCtx.createGain();
+      const g2 = audioCtx.createGain();
+
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(freq, t);
+
+      osc2.type = "triangle";
+      osc2.frequency.setValueAtTime(freq * 2.0, t);
+
+      g1.gain.setValueAtTime(0.0001, t);
+      g1.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+      g1.gain.exponentialRampToValueAtTime(0.0001, t + 1.45);
+
+      g2.gain.setValueAtTime(0.0001, t);
+      g2.gain.exponentialRampToValueAtTime(vol * 0.35, t + 0.005);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+
+      osc1.connect(g1);
+      osc2.connect(g2);
+      g1.connect(masterGain);
+      g1.connect(delayNode);
+      g2.connect(masterGain);
+
+      osc1.start(t);
+      osc2.start(t);
+      osc1.stop(t + 1.5);
+      osc2.stop(t + 0.45);
+    }
+
+    // --- Soft-Body Spring-Mass Jelly Mesh ---
+    const COLS = 13;
+    const ROWS = 11;
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let nodes = [];
+    let ripples = [];
+    let sparkles = [];
+
+    function buildMesh() {
+      nodes = [];
+      const jellyW = Math.min(width * 0.56, 620);
+      const jellyH = Math.min(height * 0.52, 430);
+      const ox = (width - jellyW) / 2;
+      const oy = (height - jellyH) / 2 + 16;
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const u = c / (COLS - 1);
+          const v = r / (ROWS - 1);
+          // Organic dome/bell silhouette curve
+          const arch = Math.sin(u * Math.PI) * (1 - v * 0.55) * 34;
+          const pinch = (u - 0.5) * (1 + v * 0.24) * jellyW;
+          const rx = width / 2 + pinch;
+          const ry = oy + v * jellyH - arch;
+          nodes.push({
+            rx, ry,
+            x: rx, y: ry,
+            vx: 0, vy: 0,
+            u, v,
+            energy: 0,
+          });
+        }
+      }
+    }
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      buildMesh();
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    function idxOf(r, c) { return r * COLS + c; }
+
+    // Pointer interaction
+    const pointer = { x: -9999, y: -9999, px: -9999, py: -9999, down: false, active: false };
+
+    function onMove(clientX, clientY) {
+      if (!pointer.active) {
+        pointer.px = clientX;
+        pointer.py = clientY;
+        pointer.active = true;
+      } else {
+        pointer.px = pointer.x;
+        pointer.py = pointer.y;
+      }
+      pointer.x = clientX;
+      pointer.y = clientY;
+
+      const dx = pointer.x - pointer.px;
+      const dy = pointer.y - pointer.py;
+      const speed = Math.hypot(dx, dy);
+      if (speed < 0.8 && !pointer.down) return;
+
+      const radius = pointer.down ? 145 : 105;
+      let hitEnergy = 0;
+      let hitNode = null;
+
+      for (const n of nodes) {
+        const dist = Math.hypot(n.x - pointer.x, n.y - pointer.y);
+        if (dist < radius) {
+          const falloff = (1 - dist / radius) ** 2;
+          const push = pointer.down ? 0.52 : 0.32;
+          n.vx += dx * falloff * push;
+          n.vy += dy * falloff * push;
+          n.energy = Math.min(1.4, n.energy + falloff * Math.min(1, speed / 18));
+          if (falloff > hitEnergy) {
+            hitEnergy = falloff;
+            hitNode = n;
+          }
+        }
+      }
+
+      if (hitNode && speed > 3.2) {
+        playChime(hitNode.u, hitNode.v, Math.min(1, speed / 26));
+        ripples.push({ x: pointer.x, y: pointer.y, r: 8, alpha: 0.55 });
+        for (let i = 0; i < 3; i++) {
+          sparkles.push({
+            x: pointer.x + (Math.random() - 0.5) * 24,
+            y: pointer.y + (Math.random() - 0.5) * 24,
+            vx: dx * 0.12 + (Math.random() - 0.5) * 2.2,
+            vy: dy * 0.12 - Math.random() * 2.4,
+            life: 1.0,
+            size: 2 + Math.random() * 3.5,
+          });
+        }
+      }
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      pointer.down = true;
+      ensureAudio();
+      onMove(e.clientX, e.clientY);
+      // Pluck impulse on click even without dragging
+      for (const n of nodes) {
+        const dist = Math.hypot(n.x - e.clientX, n.y - e.clientY);
+        if (dist < 130) {
+          const f = (1 - dist / 130) ** 2;
+          const ang = Math.atan2(n.y - e.clientY, n.x - e.clientX);
+          n.vx += Math.cos(ang) * f * 14;
+          n.vy += Math.sin(ang) * f * 14;
+          n.energy = Math.min(1.5, n.energy + f * 0.9);
+        }
+      }
+      playChime(e.clientX / width, e.clientY / height, 0.85);
+      ripples.push({ x: e.clientX, y: e.clientY, r: 10, alpha: 0.75 });
+    });
+    window.addEventListener("pointermove", (e) => onMove(e.clientX, e.clientY));
+    window.addEventListener("pointerup", () => { pointer.down = false; });
+
+    document.getElementById("modes").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-theme]");
+      if (!btn) return;
+      document.querySelectorAll("#modes button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      theme = THEMES[btn.dataset.theme];
+      ensureAudio();
+      // Gentle celebratory wave across the jelly
+      nodes.forEach((n, i) => {
+        n.vy -= Math.sin(n.u * Math.PI) * 7.5;
+        n.energy = 0.8;
+      });
+      playChime(0.5, 0.3, 0.8);
+    });
+
+    function stepPhysics(time) {
+      const t = time * 0.001;
+      // Neighbor spring forces
+      const kNeighbor = 0.14;
+      const kHome = 0.032;
+      const damping = 0.915;
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const n = nodes[idxOf(r, c)];
+          // Subtle underwater breathing float
+          const floatX = Math.sin(t * 1.3 + n.v * 2.5 + n.u * 1.7) * 6;
+          const floatY = Math.cos(t * 1.6 + n.u * 3.1) * 8;
+          let fx = (n.rx + floatX - n.x) * kHome;
+          let fy = (n.ry + floatY - n.y) * kHome;
+
+          const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+          for (const [dr, dc] of dirs) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+              const m = nodes[idxOf(nr, nc)];
+              const restDx = n.rx - m.rx;
+              const restDy = n.ry - m.ry;
+              const curDx = n.x - m.x;
+              const curDy = n.y - m.y;
+              fx += (restDx - curDx) * kNeighbor;
+              fy += (restDy - curDy) * kNeighbor;
+            }
+          }
+          n.vx = (n.vx + fx) * damping;
+          n.vy = (n.vy + fy) * damping;
+          n.energy *= 0.955;
+        }
+      }
+      for (const n of nodes) {
+        n.x += n.vx;
+        n.y += n.vy;
+      }
+    }
+
+    function mixRGB(a, b, t, alpha) {
+      const r = Math.round(a[0] + (b[0] - a[0]) * t);
+      const g = Math.round(a[1] + (b[1] - a[1]) * t);
+      const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+      return `rgba(${r}, ${g}, ${bl}, ${alpha})`;
+    }
+
+    function render(time) {
+      stepPhysics(time);
+
+      // Background gradient
+      const bg = ctx.createLinearGradient(0, 0, 0, height);
+      bg.addColorStop(0, theme.bgTop);
+      bg.addColorStop(1, theme.bgBottom);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+
+      // Ambient underwater halo behind jelly
+      const centerNode = nodes[idxOf(Math.floor(ROWS / 2), Math.floor(COLS / 2))];
+      const halo = ctx.createRadialGradient(centerNode.x, centerNode.y, 20, centerNode.x, centerNode.y, 340);
+      halo.addColorStop(0, mixRGB(theme.glowA, theme.glowB, 0.5, 0.22));
+      halo.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = halo;
+      ctx.fillRect(0, 0, width, height);
+
+      // Expanding sound ripples
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const rp = ripples[i];
+        rp.r += 4.2;
+        rp.alpha *= 0.94;
+        if (rp.alpha < 0.02) {
+          ripples.splice(i, 1);
+          continue;
+        }
+        ctx.beginPath();
+        ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+        ctx.strokeStyle = mixRGB(theme.glowA, theme.glowB, 0.4, rp.alpha);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Jelly translucent cells
+      for (let r = 0; r < ROWS - 1; r++) {
+        for (let c = 0; c < COLS - 1; c++) {
+          const p00 = nodes[idxOf(r, c)];
+          const p10 = nodes[idxOf(r, c + 1)];
+          const p11 = nodes[idxOf(r + 1, c + 1)];
+          const p01 = nodes[idxOf(r + 1, c)];
+          const e = (p00.energy + p10.energy + p11.energy + p01.energy) * 0.25;
+          const blend = (c / (COLS - 1)) * 0.65 + (r / (ROWS - 1)) * 0.35;
+
+          ctx.beginPath();
+          ctx.moveTo(p00.x, p00.y);
+          ctx.lineTo(p10.x, p10.y);
+          ctx.lineTo(p11.x, p11.y);
+          ctx.lineTo(p01.x, p01.y);
+          ctx.closePath();
+
+          ctx.fillStyle = mixRGB(theme.glowA, theme.glowB, blend, theme.fillAlpha + e * 0.28);
+          ctx.fill();
+          ctx.strokeStyle = mixRGB(theme.glowA, theme.glowB, blend, 0.36 + e * 0.45);
+          ctx.lineWidth = 1.2 + e * 1.4;
+          ctx.stroke();
+        }
+      }
+
+      // Smooth outer glowing rim + trailing tentacles along bottom row
+      const t = time * 0.002;
+      for (let c = 1; c < COLS - 1; c += 2) {
+        const anchor = nodes[idxOf(ROWS - 1, c)];
+        ctx.beginPath();
+        ctx.moveTo(anchor.x, anchor.y);
+        const wave1 = Math.sin(t + c) * 18 + anchor.vx * 3;
+        const wave2 = Math.cos(t * 0.8 + c * 1.4) * 26 + anchor.vx * 5;
+        ctx.bezierCurveTo(
+          anchor.x + wave1, anchor.y + 55,
+          anchor.x + wave2, anchor.y + 110,
+          anchor.x + wave1 * 0.7, anchor.y + 155
+        );
+        ctx.strokeStyle = mixRGB(theme.glowB, theme.glowA, c / COLS, 0.32 + anchor.energy * 0.4);
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+      }
+
+      // Glowing lattice nodes
+      for (const n of nodes) {
+        const r = 2.4 + n.energy * 4.2;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = n.energy > 0.15 ? "#ffffff" : theme.rim;
+        ctx.fill();
+      }
+
+      // Floating chime sparkles
+      for (let i = sparkles.length - 1; i >= 0; i--) {
+        const sp = sparkles[i];
+        sp.x += sp.vx;
+        sp.y += sp.vy;
+        sp.life -= 0.024;
+        if (sp.life <= 0) {
+          sparkles.splice(i, 1);
+          continue;
+        }
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sp.size * sp.life, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${sp.life * 0.85})`;
+        ctx.fill();
+      }
+
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
